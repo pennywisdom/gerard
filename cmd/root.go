@@ -5,9 +5,11 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func Execute(ctx context.Context, version string) {
+	viper.AutomaticEnv()
 	rootCmd := &cobra.Command{
 		Use:   "gerard",
 		Short: "gerard your butler services....",
@@ -19,7 +21,7 @@ func Execute(ctx context.Context, version string) {
 		SilenceUsage: true,
 	}
 
-	rootCmd.AddCommand(aaExecute())
+	rootCmd.AddCommand(svcCatExecute())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
