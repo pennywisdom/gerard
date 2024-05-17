@@ -12,7 +12,7 @@ type input struct {
 	productId string
 }
 
-type svcCatCreateRepoInput struct {
+type svcCatProvisionProductInput struct {
 	input
 	repoType     string
 	product      string
@@ -35,18 +35,18 @@ func (i *input) resolve(path string) string {
 	return path
 }
 
-func (i *svcCatCreateRepoInput) Envfile() string {
+func (i *svcCatProvisionProductInput) Envfile() string {
 	return i.resolve(i.envFile)
 }
 
-func (i *svcCatCreateRepoInput) WorkDir() string {
+func (i *svcCatProvisionProductInput) WorkDir() string {
 	return i.resolve("*")
 }
 
-func (i *svcCatCreateRepoInput) Vars() map[string]string {
+func (i *svcCatProvisionProductInput) Vars() map[string]string {
 	return i.vars
 }
 
-func (i *svcCatCreateRepoInput) ProductId() string {
+func (i *svcCatProvisionProductInput) ProductId() string {
 	return i.productId
 }

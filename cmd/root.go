@@ -21,7 +21,7 @@ func Execute(ctx context.Context, version string) {
 		SilenceUsage: true,
 	}
 
-	rootCmd.AddCommand(svcCatExecute())
+	rootCmd.AddCommand(svcCatExecute(ctx))
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

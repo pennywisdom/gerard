@@ -1,8 +1,8 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -21,7 +21,7 @@ var (
 	CONTAINER_IMAGES_REPO_NONPROD_ID = os.Getenv("CONTAINER_IMAGES_REPO_PROD_ID") //= "prod-2jaq3qdizlarc"
 )
 
-func svcCatExecute() *cobra.Command {
+func svcCatExecute(ctx context.Context) *cobra.Command {
 	svcCatCmd := &cobra.Command{
 		Use:   "svc-catalog",
 		Short: "Your personal assistant for AWS Service Catalog",
@@ -31,43 +31,50 @@ func svcCatExecute() *cobra.Command {
 		},
 		SilenceUsage: true,
 	}
-	svcCatCmd.AddCommand(svcCatProvisionProduct())
+	svcCatCmd.AddCommand(svcCatProvisionProduct(ctx))
 
 	return svcCatCmd
 }
 
-func uiProvisionProduct(cmd *cobra.Command, args []string) error {
-	model, err := view.NewModel()
-	if err != nil {
-		return err
-	}
+func svcCatProvisionProduct(ctx context.Context) *cobra.Command {
+	input := new(svcCatProvisionProductInput)
 
-	model.F = provisionProduct
-	p := tea.NewProgram(model)
-	if _, err := p.Run(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func svcCatProvisionProduct() *cobra.Command {
-	// validRepoTypes := []string{"both", "dev", "prod"}
 	cmd := &cobra.Command{
 		Use:          "provision-product",
 		Short:        "Provision a product in AWS Service Catalog",
 		Long:         `provision-product [flags]\n\nProvision a product in AWS Service Catalog`,
-		RunE:         uiProvisionProduct,
+		RunE:         uiProvisionProduct(ctx, input),
 		SilenceUsage: true,
 	}
+
+	cmd.Flags().StringToStringVarP(&input.vars, "var", "v", map[string]string{}, "Parameters for the product")
+	cmd.Flags().StringVarP(&input.productId, "product-id", "p", "", "Product ID")
 	//nolint:errcheck
 	cmd.MarkFlagRequired("product-id")
 
 	return cmd
 }
 
-func provisionProduct(cmd *cobra.Command, args []string) error {
-	input := new(svcCatCreateRepoInput)
-	cfg, err := config.LoadDefaultConfig(cmd.Context())
+func uiProvisionProduct(ctx context.Context, input *svcCatProvisionProductInput) func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		model, err := view.NewModel()
+		if err != nil {
+			return err
+		}
+		// model.F = provisionProduct
+		model.F = func() error {
+			return provisionProduct(ctx, input)
+		}
+		p := tea.NewProgram(model)
+		if _, err := p.Run(); err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
+func provisionProduct(ctx context.Context, input *svcCatProvisionProductInput) error {
+	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return err
 	}
@@ -84,7 +91,7 @@ func provisionProduct(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	log.Printf("inputs: %v", input)
+	// log.Printf("inputs: %v", input)
 
 	params := []scTypes.ProvisioningParameter{}
 	for k, v := range input.vars {
@@ -93,7 +100,7 @@ func provisionProduct(cmd *cobra.Command, args []string) error {
 			Value: aws.String(v),
 		})
 	}
-	output, err := client.ProvisionProduct(cmd.Context(), &servicecatalog.ProvisionProductInput{
+	output, err := client.ProvisionProduct(ctx, &servicecatalog.ProvisionProductInput{
 		ProductId:                aws.String(input.productId),
 		ProvisionedProductName:   aws.String(fmt.Sprintf("%s-%s", input.productId, suffix)),
 		ProvisioningArtifactName: aws.String("v1.0.1"),
@@ -105,11 +112,11 @@ func provisionProduct(cmd *cobra.Command, args []string) error {
 	}
 
 	status := output.RecordDetail.Status
-	log.Println("status: ", status)
+	// log.Println("status: ", status)
 
 	for status == scTypes.RecordStatusInProgress || status == scTypes.RecordStatusCreated {
 		fmt.Printf(">")
-		record, err := client.DescribeRecord(cmd.Context(), &servicecatalog.DescribeRecordInput{
+		record, err := client.DescribeRecord(ctx, &servicecatalog.DescribeRecordInput{
 			Id: output.RecordDetail.RecordId,
 		})
 		if err != nil {
@@ -119,7 +126,7 @@ func provisionProduct(cmd *cobra.Command, args []string) error {
 		time.Sleep(5 * time.Second)
 		// log.Println("status: ", status) ,
 	}
-	log.Println("status: ", status)
+	// log.Println("status: ", status)
 
 	return nil
 
